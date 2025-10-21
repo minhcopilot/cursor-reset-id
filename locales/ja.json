@@ -325,7 +325,7 @@
         "disclaimer_3": "コードファイルは影響を受けず、ツールは設計されています",
         "disclaimer_1": "このツールは、すべてのカーソルAI設定を永続的に削除します。",
         "removed": "削除：{パス}",
-        "report_issue": "この問題をhttps://github.com/yeongpin/cursor-free-vip/issues（",
+        "report_issue": "この問題をhttps://github.com/minhcopilot/cursor-reset-id/issues（",
         "found_danger_zone": "Danger Zoneセクションが見つかりました",
         "creating_backup": "構成バックアップの作成",
         "cursor_reset_completed": "カーソルAIエディターは完全にリセットされ、試行検出がバイパスされました！",
