@@ -3,6 +3,15 @@
 import os
 import sys
 import json
+
+# Force UTF-8 encoding for stdout/stderr (must be before other imports)
+if sys.platform == 'win32':
+    import codecs
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    if hasattr(sys.stderr, 'buffer'):
+        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
 from logo import print_logo, version
 from colorama import Fore, Style, init
 import locale
