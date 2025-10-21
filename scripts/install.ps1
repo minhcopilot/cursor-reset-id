@@ -9,12 +9,6 @@ $Theme = @{
 
 # ASCII Logo
 $Logo = @"
-   ██████╗██╗   ██╗██████╗ ███████╗ ██████╗ ██████╗      ██████╗ ██████╗  ██████╗   
-  ██╔════╝██║   ██║██╔══██╗██╔════╝██╔═══██╗██╔══██╗     ██╔══██╗██╔══██╗██╔═══██╗  
-  ██║     ██║   ██║██████╔╝███████╗██║   ██║██████╔╝     ██████╔╝██████╔╝██║   ██║  
-  ██║     ██║   ██║██╔══██╗╚════██║██║   ██║██╔══██╗     ██╔═══╝ ██╔══██╗██║   ██║  
-  ╚██████╗╚██████╔╝██║  ██║███████║╚██████╔╝██║  ██║     ██║     ██║  ██║╚██████╔╝  
-   ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝     ╚═╝     ╚═╝  ╚═╝ ╚═════╝  
 "@
 
 # Beautiful Output Function
@@ -58,8 +52,7 @@ function Get-LatestVersion {
 Write-Host $Logo -ForegroundColor $Theme.Primary
 $releaseInfo = Get-LatestVersion
 $version = $releaseInfo.Version
-Write-Host "Version $version" -ForegroundColor $Theme.Info
-Write-Host "Created by YeongPin`n" -ForegroundColor $Theme.Info
+
 
 # Set TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12

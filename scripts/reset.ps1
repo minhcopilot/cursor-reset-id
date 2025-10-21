@@ -83,9 +83,6 @@ if ($Elevated) {
     Start-Sleep -Seconds 1
 }
 
-# 顯示 Logo
-Write-Host $Logo -ForegroundColor $Theme.Primary
-Write-Host "Created by YeongPin`n" -ForegroundColor $Theme.Info
 
 # 設置 TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
