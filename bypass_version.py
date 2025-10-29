@@ -49,7 +49,10 @@ def get_product_json_path(translator=None):
             product_json_path = os.path.join(cursor_path, "product.json")
     
     elif system == "Darwin":  # macOS
-        product_json_path = "/Applications/Cursor.app/Contents/Resources/app/product.json"
+        # Check if CURSOR_APP_PATH is set (for custom Cursor location)
+        cursor_app_base = os.environ.get('CURSOR_APP_PATH', '/Applications/Cursor.app')
+        product_json_path = os.path.join(cursor_app_base, 'Contents/Resources/app/product.json')
+        
         if config.has_section('MacPaths') and config.has_option('MacPaths', 'product_json_path'):
             product_json_path = config.get('MacPaths', 'product_json_path')
     

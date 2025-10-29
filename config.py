@@ -131,14 +131,19 @@ def setup_config(translator=None):
             os.makedirs(os.path.dirname(default_config['WindowsPaths']['storage_path']), exist_ok=True)
             
         elif sys.platform == "darwin":
+            # Check if CURSOR_APP_PATH is set (for custom Cursor location, e.g., Desktop)
+            cursor_app_base = os.environ.get('CURSOR_APP_PATH', '/Applications/Cursor.app')
+            cursor_resources_path = os.path.join(cursor_app_base, 'Contents/Resources/app')
+            cursor_update_yml_path = os.path.join(cursor_app_base, 'Contents/Resources/app-update.yml')
+            
             default_config['MacPaths'] = {
                 'storage_path': os.path.abspath(os.path.expanduser("~/Library/Application Support/Cursor/User/globalStorage/storage.json")),
                 'sqlite_path': os.path.abspath(os.path.expanduser("~/Library/Application Support/Cursor/User/globalStorage/state.vscdb")),
                 'machine_id_path': os.path.expanduser("~/Library/Application Support/Cursor/machineId"),
-                'cursor_path': "/Applications/Cursor.app/Contents/Resources/app",
+                'cursor_path': cursor_resources_path,
                 'updater_path': os.path.expanduser("~/Library/Application Support/cursor-updater"),
-                'update_yml_path': "/Applications/Cursor.app/Contents/Resources/app-update.yml",
-                'product_json_path': "/Applications/Cursor.app/Contents/Resources/app/product.json"
+                'update_yml_path': cursor_update_yml_path,
+                'product_json_path': os.path.join(cursor_resources_path, 'product.json')
             }
             # Create storage directory
             os.makedirs(os.path.dirname(default_config['MacPaths']['storage_path']), exist_ok=True)

@@ -49,6 +49,85 @@ close_cursor_app() {
     fi
 }
 
+# Move Cursor.app to Desktop for patching (macOS only)
+move_cursor_to_desktop() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        local original_path="/Applications/Cursor.app"
+        local desktop_path="$HOME/Desktop/Cursor.app"
+        
+        # Check if Cursor exists in /Applications/
+        if [ ! -d "$original_path" ]; then
+            echo -e "${YELLOW}⚠️  Không tìm thấy Cursor trong /Applications/${NC}"
+            
+            # Check if already on Desktop
+            if [ -d "$desktop_path" ]; then
+                echo -e "${GREEN}✅ Cursor đã có sẵn trên Desktop${NC}"
+                export CURSOR_APP_PATH="$desktop_path"
+                return 0
+            fi
+            
+            echo -e "${RED}❌ Không tìm thấy Cursor.app${NC}"
+            return 1
+        fi
+        
+        # Check if Cursor can be modified in /Applications/
+        if [ -w "$original_path/Contents/Resources/app/package.json" ]; then
+            echo -e "${GREEN}✅ Cursor trong /Applications/ có thể sửa đổi được${NC}"
+            export CURSOR_APP_PATH="$original_path"
+            return 0
+        fi
+        
+        echo ""
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}⚠️  GIẢI PHÁP TỰ ĐỘNG CHO LỖI 'Operation not permitted'${NC}"
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo -e "${CYAN}📦 macOS bảo vệ các ứng dụng trong /Applications/${NC}"
+        echo -e "${CYAN}💡 Script sẽ tự động copy Cursor ra Desktop để patch${NC}"
+        echo ""
+        
+        # Check if Desktop already has Cursor
+        if [ -d "$desktop_path" ]; then
+            echo -e "${YELLOW}⚠️  Phát hiện Cursor.app đã có trên Desktop${NC}"
+            read -p "$(echo -e ${CYAN}Bạn có muốn xóa và copy lại từ /Applications/? [y/N]: ${NC})" -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                echo -e "${CYAN}ℹ️  Đang xóa Cursor.app cũ trên Desktop...${NC}"
+                rm -rf "$desktop_path"
+            else
+                echo -e "${GREEN}✅ Sử dụng Cursor.app hiện có trên Desktop${NC}"
+                export CURSOR_APP_PATH="$desktop_path"
+                return 0
+            fi
+        fi
+        
+        echo -e "${CYAN}ℹ️  Đang copy Cursor.app ra Desktop...${NC}"
+        echo -e "${YELLOW}   (Quá trình này có thể mất vài phút)${NC}"
+        
+        if cp -R "$original_path" "$desktop_path" 2>/dev/null; then
+            echo -e "${GREEN}✅ Đã copy Cursor.app ra Desktop thành công!${NC}"
+            echo -e "${CYAN}ℹ️  Vị trí: ${desktop_path}${NC}"
+            export CURSOR_APP_PATH="$desktop_path"
+            
+            # Remove extended attributes from copied app
+            echo -e "${CYAN}ℹ️  Đang xóa các thuộc tính bảo vệ...${NC}"
+            xattr -cr "$desktop_path" 2>/dev/null
+            
+            echo ""
+            echo -e "${GREEN}✅ Bạn có thể:${NC}"
+            echo -e "${CYAN}   • Sử dụng Cursor từ Desktop (khuyến nghị)${NC}"
+            echo -e "${CYAN}   • Hoặc xóa /Applications/Cursor.app nếu muốn${NC}"
+            echo ""
+            
+            return 0
+        else
+            echo -e "${RED}❌ Không thể copy Cursor.app ra Desktop${NC}"
+            echo -e "${YELLOW}⚠️  Vui lòng copy thủ công: cp -R /Applications/Cursor.app ~/Desktop/${NC}"
+            return 1
+        fi
+    fi
+}
+
 # Logo
 print_logo() {
     echo -e "${CYAN}"
@@ -134,9 +213,22 @@ install_cursor_free_vip() {
     if [ -f "${binary_path}" ]; then
         echo -e "${GREEN}✅ Đã tìm thấy file cài đặt${NC}"
         echo -e "${CYAN}ℹ️ Vị trí: ${binary_path}${NC}"
+        
+        # Show Cursor path info if on macOS
+        if [[ "$(uname)" == "Darwin" && -n "$CURSOR_APP_PATH" ]]; then
+            echo -e "${CYAN}ℹ️ Cursor sẽ được patch tại: ${CURSOR_APP_PATH}${NC}"
+        fi
+        
         echo -e "${CYAN}ℹ️ Đang khởi động chương trình...${NC}"
+        echo ""
         
         chmod +x "${binary_path}"
+        
+        # Export CURSOR_APP_PATH for the tool to use
+        if [[ -n "$CURSOR_APP_PATH" ]]; then
+            export CURSOR_APP_PATH
+        fi
+        
         "${binary_path}"
         return
     fi
@@ -202,7 +294,19 @@ install_cursor_free_vip() {
     if chmod +x "${binary_path}"; then
         echo -e "${GREEN}✅ Cài đặt hoàn tất!${NC}"
         echo -e "${CYAN}ℹ️ Chương trình đã được tải về: ${binary_path}${NC}"
+        
+        # Show Cursor path info if on macOS
+        if [[ "$(uname)" == "Darwin" && -n "$CURSOR_APP_PATH" ]]; then
+            echo -e "${CYAN}ℹ️ Cursor sẽ được patch tại: ${CURSOR_APP_PATH}${NC}"
+        fi
+        
         echo -e "${CYAN}ℹ️ Đang khởi động chương trình...${NC}"
+        echo ""
+        
+        # Export CURSOR_APP_PATH for the tool to use
+        if [[ -n "$CURSOR_APP_PATH" ]]; then
+            export CURSOR_APP_PATH
+        fi
         
         # Run program directly
         "${binary_path}"
@@ -217,6 +321,7 @@ main() {
     print_logo
     check_sudo "$@"
     close_cursor_app
+    move_cursor_to_desktop
     get_latest_version
     detect_os
     install_cursor_free_vip

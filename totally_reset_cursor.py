@@ -63,8 +63,12 @@ def get_cursor_paths(translator=None) -> Tuple[str, str]:
         os.makedirs(config_dir)
     
     # Default paths for different systems
+    # Check if CURSOR_APP_PATH is set (for custom Cursor location on macOS)
+    darwin_cursor_path = os.environ.get('CURSOR_APP_PATH', '/Applications/Cursor.app')
+    darwin_resources_path = os.path.join(darwin_cursor_path, 'Contents/Resources/app')
+    
     default_paths = {
-        "Darwin": "/Applications/Cursor.app/Contents/Resources/app",
+        "Darwin": darwin_resources_path,
         "Windows": os.path.join(os.getenv("LOCALAPPDATA", ""), "Programs", "Cursor", "resources", "app"),
         "Linux": ["/opt/Cursor/resources/app", "/usr/share/cursor/resources/app", os.path.expanduser("~/.local/share/cursor/resources/app")]
     }
