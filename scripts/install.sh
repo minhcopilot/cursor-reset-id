@@ -88,17 +88,10 @@ move_cursor_to_desktop() {
         
         # Check if Desktop already has Cursor
         if [ -d "$desktop_path" ]; then
-            echo -e "${YELLOW}⚠️  Phát hiện Cursor.app đã có trên Desktop${NC}"
-            read -p "$(echo -e ${CYAN}Bạn có muốn xóa và copy lại từ /Applications/? [y/N]: ${NC})" -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                echo -e "${CYAN}ℹ️  Đang xóa Cursor.app cũ trên Desktop...${NC}"
-                rm -rf "$desktop_path"
-            else
-                echo -e "${GREEN}✅ Sử dụng Cursor.app hiện có trên Desktop${NC}"
-                export CURSOR_APP_PATH="$desktop_path"
-                return 0
-            fi
+            echo -e "${GREEN}✅ Phát hiện Cursor.app đã có trên Desktop${NC}"
+            echo -e "${CYAN}ℹ️  Sử dụng Cursor.app hiện có (bỏ qua việc copy)${NC}"
+            export CURSOR_APP_PATH="$desktop_path"
+            return 0
         fi
         
         echo -e "${CYAN}ℹ️  Đang copy Cursor.app ra Desktop...${NC}"
