@@ -57,6 +57,136 @@ $version = $releaseInfo.Version
 # Set TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# Function to start program as current user (even if PowerShell is running as admin)
+function Start-ProgramAsCurrentUser {
+    param (
+        [string]$FilePath
+    )
+    try {
+        $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        
+        if ($isAdmin) {
+            # If running as admin, use explorer.exe to run as current user
+            # explorer.exe always runs with current user privileges
+            Write-Styled "PowerShell is running as admin, starting program as current user via explorer..." -Color $Theme.Info -Prefix "Launch"
+            $process = Start-Process -FilePath "explorer.exe" -ArgumentList "`"$FilePath`"" -PassThru -ErrorAction Stop
+            
+            if ($process) {
+                Write-Styled "Program started as current user" -Color $Theme.Success -Prefix "Launch"
+                return $true
+            }
+        } else {
+            # If not running as admin, just start normally
+            $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $startInfo.FileName = $FilePath
+            $startInfo.UseShellExecute = $true
+            $startInfo.WorkingDirectory = Split-Path $FilePath -Parent
+            $process = [System.Diagnostics.Process]::Start($startInfo)
+            
+            if ($process) {
+                Write-Styled "Program started successfully" -Color $Theme.Success -Prefix "Launch"
+                return $true
+            }
+        }
+        
+        return $false
+    } catch {
+        Write-Styled "Error starting program: $($_.Exception.Message)" -Color $Theme.Warning -Prefix "Warning"
+        return $false
+    }
+}
+
+# Function to ensure config directory exists with proper permissions
+function Ensure-ConfigDirectory {
+    try {
+        $documentsPath = [Environment]::GetFolderPath("MyDocuments")
+        if (-not $documentsPath -or -not (Test-Path $documentsPath)) {
+            Write-Styled "Documents folder not found, using user profile" -Color $Theme.Warning -Prefix "Warning"
+            $documentsPath = [Environment]::GetFolderPath("UserProfile")
+        }
+        
+        $configDir = Join-Path $documentsPath ".cursor-free-vip"
+        $configFile = Join-Path $configDir "config.ini"
+        
+        # Create directory if it doesn't exist
+        if (-not (Test-Path $configDir)) {
+            Write-Styled "Creating config directory..." -Color $Theme.Primary -Prefix "Config"
+            try {
+                New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+                Write-Styled "Config directory created: $configDir" -Color $Theme.Success -Prefix "Config"
+            } catch {
+                Write-Styled "Failed to create config directory: $($_.Exception.Message)" -Color $Theme.Error -Prefix "Error"
+                return $false
+            }
+        } else {
+            Write-Styled "Config directory already exists: $configDir" -Color $Theme.Info -Prefix "Config"
+        }
+        
+        # Fix permissions on directory
+        try {
+            $acl = Get-Acl $configDir
+            $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($currentUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+            $acl.SetAccessRule($accessRule)
+            Set-Acl $configDir $acl
+            Write-Styled "Directory permissions set" -Color $Theme.Success -Prefix "Config"
+        } catch {
+            Write-Styled "Warning: Could not set directory permissions: $($_.Exception.Message)" -Color $Theme.Warning -Prefix "Warning"
+        }
+        
+        # If config file exists, fix its permissions
+        if (Test-Path $configFile) {
+            Write-Styled "Config file exists, checking permissions..." -Color $Theme.Info -Prefix "Config"
+            try {
+                $acl = Get-Acl $configFile
+                $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+                $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($currentUser, "FullControl", "Allow")
+                $acl.SetAccessRule($accessRule)
+                Set-Acl $configFile $acl
+                Write-Styled "Config file permissions fixed" -Color $Theme.Success -Prefix "Config"
+            } catch {
+                Write-Styled "Warning: Could not fix config file permissions: $($_.Exception.Message)" -Color $Theme.Warning -Prefix "Warning"
+                Write-Styled "Attempting to remove read-only attribute..." -Color $Theme.Warning -Prefix "Warning"
+                try {
+                    $file = Get-Item $configFile
+                    $file.IsReadOnly = $false
+                    $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+                    Write-Styled "Read-only attribute removed" -Color $Theme.Success -Prefix "Config"
+                } catch {
+                    Write-Styled "Could not remove read-only attribute: $($_.Exception.Message)" -Color $Theme.Error -Prefix "Error"
+                }
+            }
+        }
+        
+        # Test if directory is writable by attempting to create a test file
+        try {
+            $testFile = Join-Path $configDir ".write_test"
+            $null = New-Item -ItemType File -Path $testFile -Force -ErrorAction Stop
+            Remove-Item $testFile -Force -ErrorAction SilentlyContinue
+            Write-Styled "Config directory is writable" -Color $Theme.Success -Prefix "Config"
+        } catch {
+            Write-Styled "Warning: Config directory may not be writable: $($_.Exception.Message)" -Color $Theme.Warning -Prefix "Warning"
+            Write-Styled "Trying to fix permissions..." -Color $Theme.Warning -Prefix "Warning"
+            
+            # Try to take ownership and fix permissions
+            try {
+                $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+                $takeown = Start-Process -FilePath "takeown.exe" -ArgumentList "/F", "`"$configDir`"", "/R", "/D", "Y" -Wait -NoNewWindow -PassThru
+                $icacls = Start-Process -FilePath "icacls.exe" -ArgumentList "`"$configDir`"", "/grant", "${currentUser}:F", "/T" -Wait -NoNewWindow -PassThru
+                Write-Styled "Permissions fixed using takeown/icacls" -Color $Theme.Success -Prefix "Config"
+            } catch {
+                Write-Styled "Could not fix permissions automatically" -Color $Theme.Error -Prefix "Error"
+                return $false
+            }
+        }
+        
+        return $true
+    } catch {
+        Write-Styled "Error ensuring config directory: $($_.Exception.Message)" -Color $Theme.Error -Prefix "Error"
+        return $false
+    }
+}
+
 # Main installation function
 function Install-CursorFreeVIP {
     Write-Styled "Start downloading Cursor Free VIP" -Color $Theme.Primary -Prefix "Download"
@@ -87,32 +217,21 @@ function Install-CursorFreeVIP {
             Write-Styled "Found existing installation file" -Color $Theme.Success -Prefix "Found"
             Write-Styled "Location: $downloadPath" -Color $Theme.Info -Prefix "Location"
             
+            # Ensure config directory exists before starting
+            Write-Styled "Preparing config directory..." -Color $Theme.Primary -Prefix "Config"
+            if (-not (Ensure-ConfigDirectory)) {
+                Write-Styled "Warning: Config directory setup had issues, but continuing..." -Color $Theme.Warning -Prefix "Warning"
+            }
+            
             # Check if running with administrator privileges
             $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
             
-            if (-not $isAdmin) {
-                Write-Styled "Requesting administrator privileges..." -Color $Theme.Warning -Prefix "Admin"
-                
-                # Create new process with administrator privileges
-                $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-                $startInfo.FileName = $downloadPath
-                $startInfo.UseShellExecute = $true
-                $startInfo.Verb = "runas"
-                
-                try {
-                    [System.Diagnostics.Process]::Start($startInfo)
-                    Write-Styled "Program started with admin privileges" -Color $Theme.Success -Prefix "Launch"
-                    return
-                }
-                catch {
-                    Write-Styled "Failed to start with admin privileges. Starting normally..." -Color $Theme.Warning -Prefix "Warning"
-                    Start-Process $downloadPath
-                    return
-                }
+            # Start program as current user (not admin)
+            Write-Styled "Starting program..." -Color $Theme.Primary -Prefix "Launch"
+            if (-not (Start-ProgramAsCurrentUser -FilePath $downloadPath)) {
+                Write-Styled "Failed to start program, trying direct method..." -Color $Theme.Warning -Prefix "Warning"
+                Start-Process -FilePath $downloadPath -WorkingDirectory (Split-Path $downloadPath -Parent)
             }
-            
-            # If already running with administrator privileges, start directly
-            Start-Process $downloadPath
             return
         }
         
@@ -171,8 +290,18 @@ function Install-CursorFreeVIP {
         }
         Write-Styled "Download completed!" -Color $Theme.Success -Prefix "Complete"
         Write-Styled "File location: $outputFile" -Color $Theme.Info -Prefix "Location"
+        
+        # Ensure config directory exists before starting
+        Write-Styled "Preparing config directory..." -Color $Theme.Primary -Prefix "Config"
+        if (-not (Ensure-ConfigDirectory)) {
+            Write-Styled "Warning: Config directory setup had issues, but continuing..." -Color $Theme.Warning -Prefix "Warning"
+        }
+        
         Write-Styled "Starting program..." -Color $Theme.Primary -Prefix "Launch"
-        Start-Process $outputFile
+        if (-not (Start-ProgramAsCurrentUser -FilePath $outputFile)) {
+            Write-Styled "Failed to start program, trying direct method..." -Color $Theme.Warning -Prefix "Warning"
+            Start-Process -FilePath $outputFile -WorkingDirectory (Split-Path $outputFile -Parent)
+        }
     }
     catch {
         Write-Styled $_.Exception.Message -Color $Theme.Error -Prefix "Error"
