@@ -517,10 +517,43 @@ class MachineIDResetter:
         config_file = os.path.join(config_dir, "config.ini")
         config = configparser.ConfigParser()
         
+        # Check if config file exists and is readable
         if not os.path.exists(config_file):
-            raise FileNotFoundError(f"Config file not found: {config_file}")
+            # Try temp directory as fallback
+            import tempfile
+            temp_dir = os.path.join(tempfile.gettempdir(), ".cursor-free-vip")
+            temp_config_file = os.path.join(temp_dir, "config.ini")
+            if os.path.exists(temp_config_file):
+                config_file = temp_config_file
+                config_dir = temp_dir
+                if self.translator:
+                    print(f"{Fore.YELLOW}{EMOJI['WARNING']} {self.translator.get('config.using_temp_dir', path=config_dir, error='Config not found in Documents') if self.translator else f'Using temp config: {config_dir}'}{Style.RESET_ALL}")
+            else:
+                raise FileNotFoundError(f"Config file not found: {config_file}")
         
-        config.read(config_file, encoding='utf-8')
+        # Check if file is readable
+        if not os.access(config_file, os.R_OK):
+            # Try to fix permissions on Windows
+            if sys.platform == "win32":
+                try:
+                    import stat
+                    os.chmod(config_file, stat.S_IREAD | stat.S_IWRITE)
+                except Exception:
+                    pass
+            
+            # Check again
+            if not os.access(config_file, os.R_OK):
+                if self.translator:
+                    print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('config.no_permission', fallback='Cannot Read or Write Config File, Please Check File Permissions')}{Style.RESET_ALL}")
+                raise PermissionError(f"Cannot read config file: {config_file}")
+        
+        try:
+            config.read(config_file, encoding='utf-8')
+        except Exception as e:
+            if self.translator:
+                print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('config.cannot_read_config', error=str(e)) if self.translator else f'Cannot read config file: {str(e)}'}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}{EMOJI['WARNING']} {self.translator.get('config.no_permission', fallback='Cannot Read or Write Config File, Please Check File Permissions')}{Style.RESET_ALL}")
+            raise
 
         # Check operating system
         if sys.platform == "win32":  # Windows

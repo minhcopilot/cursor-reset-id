@@ -261,9 +261,51 @@ def setup_config(translator=None):
             'epin': ''
         }
 
-        # Read existing configuration and merge
+        # Check if config file is writable before attempting to write
+        config_file_writable = False
         if os.path.exists(config_file):
-            config.read(config_file, encoding='utf-8')
+            # Check if file is readable and writable
+            if os.access(config_file, os.R_OK | os.W_OK):
+                config_file_writable = True
+            else:
+                # Try to fix permissions on Windows
+                if sys.platform == "win32":
+                    try:
+                        import stat
+                        os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
+                        if os.access(config_file, os.R_OK | os.W_OK):
+                            config_file_writable = True
+                    except Exception:
+                        pass
+        else:
+            # Check if directory is writable
+            if os.access(config_dir, os.W_OK):
+                config_file_writable = True
+        
+        # If config file is not writable, try to use temp directory
+        if not config_file_writable:
+            if translator:
+                print(f"{Fore.YELLOW}{EMOJI['WARNING']} {translator.get('config.config_file_not_writable', fallback='Config file is not writable, using temporary directory') if translator else 'Config file is not writable, using temporary directory'}{Style.RESET_ALL}")
+            import tempfile
+            temp_dir = os.path.normpath(os.path.join(tempfile.gettempdir(), ".cursor-free-vip"))
+            config_dir = temp_dir
+            config_file = os.path.normpath(os.path.join(config_dir, "config.ini"))
+            try:
+                os.makedirs(config_dir, exist_ok=True)
+                config_file_writable = True
+            except Exception as e:
+                if translator:
+                    print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('config.cannot_create_temp_config', error=str(e)) if translator else f'Cannot create temp config directory: {str(e)}'}{Style.RESET_ALL}")
+                raise
+        
+        # Read existing configuration and merge
+        if os.path.exists(config_file) and os.access(config_file, os.R_OK):
+            try:
+                config.read(config_file, encoding='utf-8')
+            except Exception as e:
+                if translator:
+                    print(f"{Fore.YELLOW}{EMOJI['WARNING']} {translator.get('config.cannot_read_config', error=str(e)) if translator else f'Cannot read config file: {str(e)}'}{Style.RESET_ALL}")
+            
             config_modified = False
             
             for section, options in default_config.items():
@@ -278,20 +320,32 @@ def setup_config(translator=None):
                             print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('config.config_option_added', option=f'{section}.{option}') if translator else f'Config option added: {section}.{option}'}{Style.RESET_ALL}")
 
             if config_modified:
-                with open(config_file, 'w', encoding='utf-8') as f:
-                    config.write(f)
-                if translator:
-                    print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('config.config_updated') if translator else 'Config updated'}{Style.RESET_ALL}")
+                try:
+                    with open(config_file, 'w', encoding='utf-8') as f:
+                        config.write(f)
+                    if translator:
+                        print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('config.config_updated') if translator else 'Config updated'}{Style.RESET_ALL}")
+                except (PermissionError, IOError) as e:
+                    if translator:
+                        print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('config.cannot_write_config', error=str(e)) if translator else f'Cannot write config file: {str(e)}'}{Style.RESET_ALL}")
+                        print(f"{Fore.YELLOW}{EMOJI['WARNING']} {translator.get('config.no_permission', fallback='Cannot Read or Write Config File, Please Check File Permissions')}{Style.RESET_ALL}")
+                    raise
         else:
             for section, options in default_config.items():
                 config.add_section(section)
                 for option, value in options.items():
                     config.set(section, option, str(value))
 
-            with open(config_file, 'w', encoding='utf-8') as f:
-                config.write(f)
-            if translator:
-                print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('config.config_created', config_file=config_file) if translator else f'Config created: {config_file}'}{Style.RESET_ALL}")
+            try:
+                with open(config_file, 'w', encoding='utf-8') as f:
+                    config.write(f)
+                if translator:
+                    print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('config.config_created', config_file=config_file) if translator else f'Config created: {config_file}'}{Style.RESET_ALL}")
+            except (PermissionError, IOError) as e:
+                if translator:
+                    print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('config.cannot_write_config', error=str(e)) if translator else f'Cannot write config file: {str(e)}'}{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}{EMOJI['WARNING']} {translator.get('config.no_permission', fallback='Cannot Read or Write Config File, Please Check File Permissions')}{Style.RESET_ALL}")
+                raise
 
         return config
 
