@@ -219,8 +219,23 @@ function Install-CursorFreeVIP {
             
             # Ensure config directory exists before starting
             Write-Styled "Preparing config directory..." -Color $Theme.Primary -Prefix "Config"
-            if (-not (Ensure-ConfigDirectory)) {
-                Write-Styled "Warning: Config directory setup had issues, but continuing..." -Color $Theme.Warning -Prefix "Warning"
+            $configSetupResult = Ensure-ConfigDirectory
+            if (-not $configSetupResult) {
+                Write-Styled "Config directory setup failed!" -Color $Theme.Error -Prefix "Error"
+                Write-Styled "Attempting to fix permissions automatically..." -Color $Theme.Warning -Prefix "Fix"
+                
+                # Try to run fix script if it exists
+                $fixScript = Join-Path $PSScriptRoot "fix_permissions.ps1"
+                if (Test-Path $fixScript) {
+                    try {
+                        & $fixScript
+                    } catch {
+                        Write-Styled "Could not run fix script automatically" -Color $Theme.Warning -Prefix "Warning"
+                    }
+                }
+                
+                Write-Styled "Please run fix_permissions.ps1 as Administrator if problem persists" -Color $Theme.Warning -Prefix "Info"
+                Write-Styled "Continuing anyway..." -Color $Theme.Warning -Prefix "Warning"
             }
             
             # Check if running with administrator privileges
@@ -293,8 +308,23 @@ function Install-CursorFreeVIP {
         
         # Ensure config directory exists before starting
         Write-Styled "Preparing config directory..." -Color $Theme.Primary -Prefix "Config"
-        if (-not (Ensure-ConfigDirectory)) {
-            Write-Styled "Warning: Config directory setup had issues, but continuing..." -Color $Theme.Warning -Prefix "Warning"
+        $configSetupResult = Ensure-ConfigDirectory
+        if (-not $configSetupResult) {
+            Write-Styled "Config directory setup failed!" -Color $Theme.Error -Prefix "Error"
+            Write-Styled "Attempting to fix permissions automatically..." -Color $Theme.Warning -Prefix "Fix"
+            
+            # Try to run fix script if it exists
+            $fixScript = Join-Path $PSScriptRoot "fix_permissions.ps1"
+            if (Test-Path $fixScript) {
+                try {
+                    & $fixScript
+                } catch {
+                    Write-Styled "Could not run fix script automatically" -Color $Theme.Warning -Prefix "Warning"
+                }
+            }
+            
+            Write-Styled "Please run fix_permissions.ps1 as Administrator if problem persists" -Color $Theme.Warning -Prefix "Info"
+            Write-Styled "Continuing anyway..." -Color $Theme.Warning -Prefix "Warning"
         }
         
         Write-Styled "Starting program..." -Color $Theme.Primary -Prefix "Launch"
